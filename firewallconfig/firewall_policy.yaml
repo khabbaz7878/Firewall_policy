@@ -1,2 +1,4 @@
 listofwafpolicy:
-  - policyname: azurewafpolicy
+  - policyname: wafpolicy-1
+  
+  - policyname: wafpolicy-2
