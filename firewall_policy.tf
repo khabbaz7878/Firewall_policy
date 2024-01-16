@@ -1,25 +1,29 @@
+output "WAFpolicy-name" {
+ value = local.waf-list
+}
+
+
 locals{
-  waf_policy=[for f in fileset("${path.module}/waffolder", "[^_]*.yaml") : yamldecode(file("${path.module}/waffolder/${f}"))]
-  azurewafpolicy_list = flatten([
-    for app in local.waf_policy: [
-      for azurewaf in try(app.listofwafpolicy, []) :{
-        name=azurewaf.policyname
+ waf_vm_0 =[for f in fileset("${path.module}/configs/waf-config", "[^_]*.yaml") : yamldecode(file("${path.module}/configs/waf-config/${f}"))]
+ waf-list = flatten([
+    for info in local.waf_vm_0 : [
+      for waf-1 in try(info.wafpolicy, []) :{
+        name=waf-1.name
+      
       }
     ]
-])
-}
-resource "azurerm_resource_group" "example" {
-  name     = "example-rg"
-  location = "West Europe"
+  ])
 }
 
-resource "azurerm_web_application_firewall_policy" "example" {
-  for_each            ={for sp in local.azurewafpolicy_list: "${sp.name}"=>sp }
+
+resource "azurerm_web_application_firewall_policy" "waf-windowsvm" {
+
+  for_each            ={for waf in local.waf-list: "${waf.name}"=>waf }
   name                = each.value.name
-  resource_group_name = azurerm_resource_group.example.name
-  location            = azurerm_resource_group.example.location
+  resource_group_name = azurerm_resource_group.tf-rg-philippe.name
+  location            = azurerm_resource_group.tf-rg-philippe.location
 
-  custom_rules {
+custom_rules {
     name      = "Rule1"
     priority  = 1
     rule_type = "MatchRule"
