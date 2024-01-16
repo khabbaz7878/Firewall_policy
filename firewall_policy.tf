@@ -23,7 +23,6 @@ resource "azurerm_windows_web_app" "example" {
  site_config {
     always_on        = true
     http2_enabled    = true
-    pre_warmed_instance_count = 1
  }
 
  app_settings = {
@@ -37,7 +36,6 @@ resource "azurerm_firewall" "example" {
  location            = azurerm_resource_group.example.location
  resource_group_name = azurerm_resource_group.example.name
 
- sku_name = "AZFW_VNet"
 
  ip_configuration {
     name                 = "example-ip-configuration"
@@ -57,34 +55,10 @@ resource "azurerm_firewall_policy" "example" {
 
  threat_intelligence_mode = "Alert"
 
- application_rule_collection {
-    name     = "Allow-Microsoft"
-    priority = 100
-
-    rule {
-      name             = "Allow-Microsoft-1"
-      type             = "AzureServices"
-      FQDN_tags        = ["MicrosoftServices"]
-      action           = "Allow"
-      priority         = 100
-    }
+ 
  }
 
- network_rule_collection {
-    name     = "Allow-Time"
-    priority = 200
 
-    rule {
-      name                 = "Allow-Time-1"
-      type                 = "Basic"
-      protocols             = ["Udp"]
-      source_addresses      = ["*"]
-      destination_ports     = ["123"]
-      destination_addresses = ["Time.windows.com"]
-      action               = "Allow"
-      priority             = 100
-    }
- }
 }
 
 # Create a subnet for the Firewall
