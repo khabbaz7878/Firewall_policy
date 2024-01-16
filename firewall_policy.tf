@@ -51,7 +51,6 @@ resource "azurerm_firewall_policy" "example" {
  location            = azurerm_resource_group.example.location
  resource_group_name = azurerm_resource_group.example.name
 
- sku_name = "AZFW_VNet"
 
  threat_intelligence_mode = "Alert"
 
