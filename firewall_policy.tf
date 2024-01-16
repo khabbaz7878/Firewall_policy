@@ -1,83 +1,108 @@
-# Create a Resource Group
+locals{
+  waf_policy=[for f in fileset("${path.module}/waffolder", "[^_]*.yaml") : yamldecode(file("${path.module}/waffolder/${f}"))]
+  azurewafpolicy_list = flatten([
+    for app in local.waf_policy: [
+      for azurewaf in try(app.listofwafpolicy, []) :{
+        name=azurewaf.policyname
+      }
+    ]
+])
+}
 resource "azurerm_resource_group" "example" {
- name     = "example-resources"
- location = "West Europe"
+  name     = "example-rg"
+  location = "West Europe"
 }
 
-# Create an App Service Plan
-resource "azurerm_service_plan" "example" {
- name                = "example-service-plan"
- location            = azurerm_resource_group.example.location
- resource_group_name = azurerm_resource_group.example.name
- sku_name            = "S1"
- os_type             = "Windows"
+resource "azurerm_web_application_firewall_policy" "example" {
+  for_each            ={for sp in local.azurewafpolicy_list: "${sp.name}"=>sp }
+  name                = each.value.name
+  resource_group_name = azurerm_resource_group.example.name
+  location            = azurerm_resource_group.example.location
+
+  custom_rules {
+    name      = "Rule1"
+    priority  = 1
+    rule_type = "MatchRule"
+
+    match_conditions {
+      match_variables {
+        variable_name = "RemoteAddr"
+      }
+
+      operator           = "IPMatch"
+      negation_condition = false
+      match_values       = ["192.168.1.0/24", "10.0.0.0/24"]
+    }
+
+    action = "Block"
+  }
+
+  custom_rules {
+    name      = "Rule2"
+    priority  = 2
+    rule_type = "MatchRule"
+
+    match_conditions {
+      match_variables {
+        variable_name = "RemoteAddr"
+      }
+
+      operator           = "IPMatch"
+      negation_condition = false
+      match_values       = ["192.168.1.0/24"]
+    }
+
+    match_conditions {
+      match_variables {
+        variable_name = "RequestHeaders"
+        selector      = "UserAgent"
+      }
+
+      operator           = "Contains"
+      negation_condition = false
+      match_values       = ["Windows"]
+    }
+
+    action = "Block"
+  }
+
+  policy_settings {
+    enabled                     = true
+    mode                        = "Prevention"
+    request_body_check          = true
+    file_upload_limit_in_mb     = 100
+    max_request_body_size_in_kb = 128
+  }
+
+  managed_rules {
+    exclusion {
+      match_variable          = "RequestHeaderNames"
+      selector                = "x-company-secret-header"
+      selector_match_operator = "Equals"
+    }
+    exclusion {
+      match_variable          = "RequestCookieNames"
+      selector                = "too-tasty"
+      selector_match_operator = "EndsWith"
+    }
+
+    managed_rule_set {
+      type    = "OWASP"
+      version = "3.2"
+      rule_group_override {
+        rule_group_name = "REQUEST-920-PROTOCOL-ENFORCEMENT"
+        rule {
+          id      = "920300"
+          enabled = true
+          action  = "Log"
+        }
+
+        rule {
+          id      = "920440"
+          enabled = true
+          action  = "Block"
+        }
+      }
+    }
+  }
 }
-
-# Define the Windows Web App
-resource "azurerm_windows_web_app" "example" {
- name                = "example-web-app"
- location            = azurerm_resource_group.example.location
- resource_group_name = azurerm_resource_group.example.name
- service_plan_id     = azurerm_service_plan.example.id
-
- site_config {
-    always_on        = true
-    http2_enabled    = true
- }
-
- app_settings = {
-    "WEBSITE_NODE_DEFAULT_VERSION" = "14.17.3"
- }
-}
-
-# Define the Firewall Policy
-resource "azurerm_firewall" "example" {
- name                = "example-firewall"
- location            = azurerm_resource_group.example.location
- resource_group_name = azurerm_resource_group.example.name
-
-
- ip_configuration {
-    name                 = "example-ip-configuration"
-    subnet_id            = azurerm_subnet.example.id
-    public_ip_address_id = azurerm_public_ip.example.id
- }
-
- firewall_policy_id = azurerm_firewall_policy.example.id
-}
-
-resource "azurerm_firewall_policy" "example" {
- name                = "example-firewall-policy"
- location            = azurerm_resource_group.example.location
- resource_group_name = azurerm_resource_group.example.name
-
-
- threat_intelligence_mode = "Alert"
-
- 
- }
-
-
-
-
-# Create a subnet for the Firewall
-resource "azurerm_subnet" "example" {
- name                 = "example-subnet"
- resource_group_name = azurerm_resource_group.example.name
- virtual_network_name = azurerm_virtual_network.example.name
- address_prefixes     = ["10.0.1.0/24"]
-}
-
-# Create a public IP for the Firewall
-resource "azurerm_public_ip" "example" {
- name                = "example-public-ip"
- location            = azurerm_resource_group.example.location
- resource_group_name = azurerm_resource_group.example.name
- allocation_method   = "Static"
-}
-
-# Create a virtual network
-resource "azurerm_virtual_network" "example" {
- name                = "example-virtual-network"
- location            = azurerm_resource_group.example.location
- }
