@@ -59,7 +59,7 @@ resource "azurerm_firewall_policy" "example" {
  }
 
 
-}
+
 
 # Create a subnet for the Firewall
 resource "azurerm_subnet" "example" {
