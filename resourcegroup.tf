@@ -33,7 +33,7 @@ resource "azurerm_resource_group" "example" {
 }
 
 
-}
+
 resource "azurerm_resource_group" "azureresourcegroup" {
   name     = "my-resource-group"
   location = "eastus"
